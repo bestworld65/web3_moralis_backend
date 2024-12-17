@@ -47,3 +47,37 @@ app.get("/nativeBalance", async (req, res) => {
     res.send(error);
   }
 });
+
+app.get("/tokenBalances", async (req, res) => {
+  await Moralis.start({ apiKey: process.env.MORALIS_API_KEY });
+
+  try {
+    const { chain, address } = req.query;
+
+    const response = await Moralis.EvmApi.token.getWalletTokenBalances({
+      chain: chain,
+      address: address,
+    });
+
+    let tokens = response.result;
+
+    let legitTokens = [];
+
+    for (let i = 0; i < tokens.length; i++) {
+      const priceResponse = await Moralis.EvmApi.token.getTokenPrice({
+        address: tokens[i].token_address,
+        chain: chain,
+      });
+
+      if (priceResponse.result.usdPrice > 0.01) {
+        tokens[i].usd = priceResponse.result.usdPrice;
+        legitTokens.push(tokens[i]);
+      } else {
+        console.log("0 coin");
+      }
+    }
+    res.send(legitTokens);
+  } catch (error) {
+    res.send(error);
+  }
+});
