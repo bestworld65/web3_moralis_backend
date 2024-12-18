@@ -113,6 +113,66 @@ app.get("/tokenTransfers", async (req, res) => {
       chain: chain,
       address: address,
     });
+    // Log and validate response
+    const userTrans = response.toJSON()?.result || []; // Fallback to an empty array
+    if (userTrans.length === 0) {
+      console.log("No token transfers found for the wallet.");
+      return res.status(200).json({ message: "No token transfers found." });
+    }
+
+    let userTransDetails = [];
+
+    // Step 2: Fetch token metadata
+    for (let i = 0; i < userTrans.length; i++) {
+      try {
+        const metaResponse = await Moralis.EvmApi.token.getTokenMetadata({
+          chain: chain,
+          addresses: [...new Set(userTrans.map(({ address }) => address))],
+        });
+
+        const metaData = metaResponse.raw;
+        console.log(`Metadata for token ${i}:`, metaData);
+
+        if (metaData.length > 0) {
+          userTrans[i].decimals = metaData[0].decimals;
+          userTrans[i].symbol = metaData[0].symbol;
+          userTransDetails.push(userTrans[i]);
+        } else {
+          console.log(`No metadata found for token ${i}`);
+        }
+      } catch (metaError) {
+        console.error(
+          `Error fetching metadata for token ${i}:`,
+          metaError.message
+        );
+      }
+    }
+
+    // Step 3: Send transfer details as the response
+    console.log("User Transfer Details:", userTransDetails);
+    res.status(200).json(userTransDetails);
+  } catch (error) {
+    console.error("Error fetching token transfers:", error.message);
+
+    // Send detailed error response
+    res.status(500).json({
+      error: "Failed to fetch token transfers.",
+      details: error.message,
+    });
+  }
+});
+
+app.get("/nftBalance", async (req, res) => {
+  await Moralis.start({ apiKey: process.env.MORALIS_API_KEY });
+
+  try {
+    const { chain, address } = req.query;
+
+    // Step 1: Get wallet token transfers
+    const response = await Moralis.EvmApi.nft.getWalletNFTs({
+      chain: chain,
+      address: address,
+    });
 
     // Log and validate response
     console.log("Raw Response:", response.toJSON());
