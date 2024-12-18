@@ -31,7 +31,7 @@ app.get("/nativeBalance", async (req, res) => {
     let nativeCurrency;
 
     if (chain === "0x1") {
-      nativeCurrency = "0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0";
+      nativeCurrency = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
     }
 
     const nativePrice = await Moralis.EvmApi.token.getTokenPrice({
@@ -54,30 +54,51 @@ app.get("/tokenBalances", async (req, res) => {
   try {
     const { chain, address } = req.query;
 
+    // Step 1: Get wallet token balances
     const response = await Moralis.EvmApi.token.getWalletTokenBalances({
       chain: chain,
       address: address,
     });
 
-    let tokens = response.result;
+    // Extract JSON-safe token data
+    let tokens = response.toJSON();
+    console.log("Tokens:", tokens);
 
     let legitTokens = [];
 
+    // Step 2: Fetch prices and filter legit tokens
     for (let i = 0; i < tokens.length; i++) {
-      const priceResponse = await Moralis.EvmApi.token.getTokenPrice({
-        address: tokens[i].token_address,
-        chain: chain,
-      });
+      try {
+        const priceResponse = await Moralis.EvmApi.token.getTokenPrice({
+          address: tokens[i].token_address,
+          chain: chain,
+        });
 
-      if (priceResponse.result.usdPrice > 0.01) {
-        tokens[i].usd = priceResponse.result.usdPrice;
-        legitTokens.push(tokens[i]);
-      } else {
-        console.log("0 coin");
+        // Extract JSON-safe price data
+        const priceData = priceResponse.toJSON();
+        console.log(`Token ${i} Price:`, priceData);
+
+        if (priceData.usdPrice > 0.01) {
+          tokens[i].usd = priceData.usdPrice; // Add price to token object
+          legitTokens.push(tokens[i]);
+        } else {
+          console.log("Token price too low: 0.01 or less");
+        }
+      } catch (priceError) {
+        console.error(
+          `Error fetching price for token ${i}:`,
+          priceError.message
+        );
       }
     }
-    res.send(legitTokens);
+
+    // Step 3: Send filtered tokens as the response
+    console.log("Legit Tokens:", legitTokens);
+    res.json(legitTokens); // Use `res.json` for JSON-safe output
   } catch (error) {
-    res.send(error);
+    console.error("Error:", error.message);
+
+    // Send a sanitized error response
+    res.status(500).json({ error: error.message });
   }
 });
