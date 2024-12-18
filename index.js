@@ -174,48 +174,9 @@ app.get("/nftBalance", async (req, res) => {
       address: address,
     });
 
-    // Log and validate response
-    console.log("Raw Response:", response.toJSON());
-    const userTrans = response.toJSON()?.result || []; // Fallback to an empty array
-    console.log("User Transfers:", userTrans);
-
-    if (userTrans.length === 0) {
-      console.log("No token transfers found for the wallet.");
-      return res.status(200).json({ message: "No token transfers found." });
-    }
-
-    let userTransDetails = [];
-
-    // Step 2: Fetch token metadata
-    for (let i = 0; i < userTrans.length; i++) {
-      try {
-        const metaResponse = await Moralis.EvmApi.token.getTokenMetadata({
-          address: [userTrans[i].address],
-          chain: chain,
-        });
-
-        // Log and validate metadata response
-        const metaData = metaResponse.toJSON()?.result || [];
-        console.log(`Metadata for token ${i}:`, metaData);
-
-        if (metaData.length > 0) {
-          userTrans[i].decimals = metaData[0].decimals;
-          userTrans[i].symbol = metaData[0].symbol;
-          userTransDetails.push(userTrans[i]);
-        } else {
-          console.log(`No metadata found for token ${i}`);
-        }
-      } catch (metaError) {
-        console.error(
-          `Error fetching metadata for token ${i}:`,
-          metaError.message
-        );
-      }
-    }
-
     // Step 3: Send transfer details as the response
-    console.log("User Transfer Details:", userTransDetails);
-    res.status(200).json(userTransDetails);
+    console.log("User Transfer Details:", response.raw);
+    res.status(200).json(response.raw);
   } catch (error) {
     console.error("Error fetching token transfers:", error.message);
 
